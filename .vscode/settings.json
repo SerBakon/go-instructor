@@ -3,6 +3,7 @@
 		"win32-x64": "frontend/node_modules/@biomejs/cli-win32-x64/biome.exe",
 		"linux-x64": "frontend/node_modules/@biomejs/cli-linux-x64/biome"
 	},
+	"biome.configurationPath": "./frontend/biome.json",
 	"editor.defaultFormatter": "biomejs.biome",
 	"editor.formatOnSave": true,
 	"editor.codeActionsOnSave": {
