@@ -16,7 +16,10 @@
 		"enabled": true,
 		"rules": {
 			"nursery": {
-				"useSortedClasses": "error"
+				"useSortedClasses": {
+					"level": "error",
+					"fix": "safe"
+				}
 			}
 		}
 	},
