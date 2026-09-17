@@ -10,11 +10,20 @@ const pipPath = isWindows
 	? path.join(venvDir, "Scripts", "pip.exe")
 	: path.join(venvDir, "bin", "pip");
 
+const pythonExePath = isWindows
+	? path.join(venvDir, "Scripts", "python.exe")
+	: path.join(venvDir, "bin", "python");
+
 const pythonCmd = isWindows ? "python" : "python3";
 
 if (!fs.existsSync(venvDir)) {
 	console.log("Creating Python virtual environment...");
 	execSync(`${pythonCmd} -m venv "${venvDir}"`, { stdio: "inherit" });
+
+	console.log("Upgrading pip...");
+	execSync(`"${pythonExePath}" -m pip install --upgrade pip`, {
+		stdio: "inherit",
+	});
 }
 
 console.log("Installing backend dependencies...");
