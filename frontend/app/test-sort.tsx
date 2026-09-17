@@ -1,3 +1,3 @@
 export default function Test() {
-	return <div className="p-4 flex bg-white text-red-500">test</div>;
+	return <div className="bg-white p-4 text-red-500 flex">test</div>;
 }
