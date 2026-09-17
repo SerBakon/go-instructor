@@ -1,0 +1,9 @@
+{
+	"name": "go-analysis-monorepo",
+	"private": true,
+	"scripts": {
+		"install:frontend": "cd frontend && bun install",
+		"install:backend": "node scripts/install-backend.js",
+		"postinstall": "bun run install:frontend && bun run install:backend"
+	}
+}
