@@ -1,7 +1,7 @@
 {
 	"biome.lsp.bin": {
-		"win32-x64": "frontend/node_modules/@biomejs/cli-win32-x64/biome.exe",
-		"linux-x64": "frontend/node_modules/@biomejs/cli-linux-x64/biome"
+		"win32-x64": "frontend/node_modules/.bin/biome.exe",
+		"linux-x64": "frontend/node_modules/.bin/biome"
 	},
 	"biome.configurationPath": "./frontend/biome.json",
 	"editor.defaultFormatter": "biomejs.biome",
@@ -9,5 +9,7 @@
 	"editor.codeActionsOnSave": {
 		"source.fixAll.biome": "explicit",
 		"source.organizeImports.biome": "explicit"
-	}
+	},
+	"python-envs.defaultEnvManager": "ms-python.python:system",
+	"python.defaultInterpreterPath": "./backend/venv/bin/python"
 }
