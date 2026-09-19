@@ -2,8 +2,17 @@
 	"name": "go-analysis-monorepo",
 	"private": true,
 	"scripts": {
-		"install:frontend": "cd frontend && bun install",
-		"install:backend": "node scripts/install-backend.js",
-		"postinstall": "bun run install:frontend && bun run install:backend"
+		"frontend-i": "cd frontend && bun install",
+		"backend-i": "node scripts/install-backend.js",
+		"postinstall": "bun run frontend-i && bun run backend-i",
+		"db-up": "docker start go-postgres || docker run --name go-postgres -e POSTGRES_PASSWORD=1234 -e POSTGRES_DB=go_instructor -p 5432:5432 -d postgres",
+		"db-down": "docker stop go-postgres",
+		"backend-dev": "backend/venv/bin/uvicorn app.main:app --reload --app-dir backend",
+		"frontend-dev": "cd frontend && bun run dev",
+		"dev": "bun db-up && concurrently -n backend,frontend -c blue,green \"bun backend-dev\" \"bun frontend-dev\"",
+		"setup": "bun install && bun db-up && echo '✅ Setup complete — run: bun dev'"
+	},
+	"devDependencies": {
+		"concurrently": "^10.0.5"
 	}
 }
