@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const backendDir = path.join(__dirname, "..", "backend");
-const venvDir = path.join(backendDir, "venv");
+const venvDir = path.join(backendDir, ".venv");
 const isWindows = process.platform === "win32";
 
 const pipPath = isWindows

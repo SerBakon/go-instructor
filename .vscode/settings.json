@@ -11,5 +11,5 @@
 		"source.organizeImports.biome": "explicit"
 	},
 	"python-envs.defaultEnvManager": "ms-python.python:system",
-	"python.defaultInterpreterPath": "./backend/venv/bin/python"
+	"python.defaultInterpreterPath": "./backend/.venv/bin/python"
 }

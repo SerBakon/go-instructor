@@ -25,7 +25,7 @@ LLM is never asked to evaluate move quality on its own.
 
 There are two independent projects living in one repo, not a JS monorepo.
 `frontend/node_modules` and `frontend/bun.lock` must stay inside `frontend/`
-— do not hoist dependencies to the repo root. `backend/venv` is a standalone
+— do not hoist dependencies to the repo root. `backend/.venv` is a standalone
 Python virtual environment.
 
 Note: `frontend/` may have its own auto-generated `AGENTS.md` (Next.js
@@ -36,15 +36,15 @@ This root `AGENTS.md` is the source of truth for the project as a whole.
 ## Setup
 
 ```bash
-bun i        # from repo root — installs frontend deps AND sets up backend venv + pip deps via postinstall
+bun i        # from repo root — installs frontend deps AND sets up backend .venv + pip deps via postinstall
 ```
 
 Backend only:
 ```bash
 cd backend
-venv\Scripts\Activate.ps1   # Windows PowerShell
-venv\Scripts\activate.bat   # Windows cmd.exe
-source venv/bin/activate    # Mac/Linux, or Git Bash/WSL on Windows
+.venv\Scripts\Activate.ps1   # Windows PowerShell
+.venv\Scripts\activate.bat   # Windows cmd.exe
+source .venv/bin/activate    # Mac/Linux, or Git Bash/WSL on Windows
 pip install -r requirements.txt
 ```
 
@@ -96,7 +96,7 @@ backend/
 │   ├── services/          KataGo wrapper, LLM prompt building, SGF parsing
 │   └── workers/           Background job logic for full-game analysis
 ├── alembic/               Migrations
-├── venv/                  Python virtual environment (gitignored)
+├── .venv/                  Python virtual environment (gitignored)
 ├── requirements.txt
 └── .env                   Local secrets (gitignored)
 ```
@@ -133,7 +133,7 @@ routes/models referenced elsewhere in this file already exist.
 ## When adding dependencies
 
 - Frontend: `cd frontend && bun add <pkg>` — never install into the repo root.
-- Backend: install into the activated venv, then re-run
+- Backend: install into the activated .venv, then re-run
   `pip freeze > requirements.txt` from `backend/` so it stays in sync.
 
 ## Testing changes

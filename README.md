@@ -84,18 +84,18 @@ Next.js frontend, all at once, with labeled/colored output.
 | `bun setup`         | One-time setup for a fresh clone                   |
 | `bun dev`           | Run Postgres + backend + frontend together         |
 | `bun frontend-i`    | Install only frontend dependencies                 |
-| `bun backend-i`     | Set up venv and install only backend dependencies  |
+| `bun backend-i`     | Set up .venv and install only backend dependencies  |
 | `bun db-up`         | Start (or create) the local Postgres container     |
 | `bun db-down`       | Stop the local Postgres container                  |
 | `bun frontend-dev`  | Run only the frontend dev server                   |
 | `bun backend-dev`   | Run only the backend dev server                    |
 
-Backend-specific (run from `backend/`, with the venv active):
+Backend-specific (run from `backend/`, with the .venv active):
 
 ```bash
-source venv/bin/activate         # Mac/Linux/WSL/Git Bash
-venv\Scripts\Activate.ps1        # Windows PowerShell
-venv\Scripts\activate.bat        # Windows cmd.exe
+source .venv/bin/activate         # Mac/Linux/WSL/Git Bash
+.venv\Scripts\Activate.ps1        # Windows PowerShell
+.venv\Scripts\activate.bat        # Windows cmd.exe
 
 alembic revision --autogenerate -m "message"   # create a migration
 alembic upgrade head                            # apply migrations
