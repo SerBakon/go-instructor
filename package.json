@@ -5,7 +5,7 @@
 		"frontend-i": "cd frontend && bun install",
 		"backend-i": "node scripts/install-backend.js",
 		"postinstall": "bun run frontend-i && bun run backend-i",
-		"db-up": "docker start go-postgres || docker run --name go-postgres -e POSTGRES_PASSWORD=1234 -e POSTGRES_DB=go_instructor -p 5432:5432 -d postgres",
+		"db-up": "node scripts/db-up.js",
 		"db-down": "docker stop go-postgres",
 		"backend-dev": "backend/venv/bin/uvicorn app.main:app --reload --app-dir backend",
 		"frontend-dev": "cd frontend && bun run dev",
