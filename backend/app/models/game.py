@@ -48,6 +48,11 @@ class Game(Base):
         order_by="Move.move_number",
     )
 
+    @property
+    def move_count(self) -> int:
+        return len(self.moves) if self.moves is not None else 0
+
+
 
 class Move(Base):
     __tablename__ = "moves"
