@@ -9,6 +9,17 @@ class GameCreate(BaseModel):
     title: Optional[str] = Field(None, description="Optional custom title for the game")
     user_id: Optional[int] = Field(None, description="Optional user ID associated with the game")
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "raw_sgf": "(;GM[1]SZ[19]PW[White]PB[Black];B[pd];W[dp];B[qp];W[dd])",
+                "title": None,
+                "user_id": None,
+            }
+        }
+    )
+
+
 
 class GameSummaryResponse(BaseModel):
     id: int

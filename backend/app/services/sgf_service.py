@@ -52,73 +52,109 @@ def parse_sgf(raw_sgf: str) -> ParsedGame:
         except Exception:
             raise SGFParseError(f"Failed to parse SGF: {str(e_str)}") from e_str
 
-    root = sgf_game.get_root()
+    try:
+        root = sgf_game.get_root()
 
-    # Title: GN (game name) or EV (event)
-    title: Optional[str] = None
-    if root.has_property("GN"):
-        title = str(root.get("GN")).strip() or None
-    elif root.has_property("EV"):
-        title = str(root.get("EV")).strip() or None
+        # Title: GN (game name) or EV (event)
+        title: Optional[str] = None
+        if root.has_property("GN"):
+            try:
+                title = str(root.get("GN")).strip() or None
+            except Exception:
+                title = None
+        elif root.has_property("EV"):
+            try:
+                title = str(root.get("EV")).strip() or None
+            except Exception:
+                title = None
 
-    # Players
-    black_player: Optional[str] = None
-    if root.has_property("PB"):
-        black_player = str(root.get("PB")).strip() or None
+        # Players
+        black_player: Optional[str] = None
+        if root.has_property("PB"):
+            try:
+                black_player = str(root.get("PB")).strip() or None
+            except Exception:
+                black_player = None
 
-    white_player: Optional[str] = None
-    if root.has_property("PW"):
-        white_player = str(root.get("PW")).strip() or None
+        white_player: Optional[str] = None
+        if root.has_property("PW"):
+            try:
+                white_player = str(root.get("PW")).strip() or None
+            except Exception:
+                white_player = None
 
-    # Komi
-    komi: float = 6.5
-    if root.has_property("KM"):
-        try:
-            komi = float(root.get("KM"))
-        except (ValueError, TypeError):
-            komi = 6.5
+        # Komi
+        komi: float = 6.5
+        if root.has_property("KM"):
+            try:
+                val = root.get("KM")
+                komi = float(val) if val is not None else 6.5
+            except Exception:
+                komi = 6.5
 
-    # Rules
-    rules: str = "japanese"
-    if root.has_property("RU"):
-        val = str(root.get("RU")).strip().lower()
-        if val:
-            rules = val
+        # Rules
+        rules: str = "japanese"
+        if root.has_property("RU"):
+            try:
+                val = str(root.get("RU")).strip().lower()
+                if val:
+                    rules = val
+            except Exception:
+                rules = "japanese"
 
-    # Result
-    result: Optional[str] = None
-    if root.has_property("RE"):
-        result = str(root.get("RE")).strip() or None
+        # Result
+        result: Optional[str] = None
+        if root.has_property("RE"):
+            try:
+                result = str(root.get("RE")).strip() or None
+            except Exception:
+                result = None
 
-    # Move sequence
-    parsed_moves: List[ParsedMove] = []
-    move_number = 1
+        # Move sequence
+        parsed_moves: List[ParsedMove] = []
+        move_number = 1
 
-    for node in sgf_game.get_main_sequence():
-        color, vertex = node.get_move()
-        if color is None:
-            continue
+        for node in sgf_game.get_main_sequence():
+            try:
+                color, vertex = node.get_move()
+            except Exception:
+                continue
 
-        player = color.upper()
-        coordinate = common.format_vertex(vertex) if vertex is not None else None
-        comment = str(node.get("C")).strip() if node.has_property("C") else None
+            if color is None:
+                continue
 
-        parsed_moves.append(
-            ParsedMove(
-                move_number=move_number,
-                player=player,
-                coordinate=coordinate,
-                comment=comment,
+            player = color.upper()
+            try:
+                coordinate = common.format_vertex(vertex) if vertex is not None else None
+            except Exception:
+                coordinate = None
+
+            comment = None
+            if node.has_property("C"):
+                try:
+                    comment = str(node.get("C")).strip() or None
+                except Exception:
+                    comment = None
+
+            parsed_moves.append(
+                ParsedMove(
+                    move_number=move_number,
+                    player=player,
+                    coordinate=coordinate,
+                    comment=comment,
+                )
             )
-        )
-        move_number += 1
+            move_number += 1
 
-    return ParsedGame(
-        title=title,
-        black_player=black_player,
-        white_player=white_player,
-        komi=komi,
-        rules=rules,
-        result=result,
-        moves=parsed_moves,
-    )
+        return ParsedGame(
+            title=title,
+            black_player=black_player,
+            white_player=white_player,
+            komi=komi,
+            rules=rules,
+            result=result,
+            moves=parsed_moves,
+        )
+    except Exception as e:
+        raise SGFParseError(f"Error parsing SGF structure: {str(e)}") from e
+
