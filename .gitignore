@@ -41,6 +41,11 @@ backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
 backend/alembic/versions/__pycache__/
+backend/katago/bin/
+backend/katago/models/
+backend/katago/logs/
+backend/tests/custom_sgfs/*
+!backend/tests/custom_sgfs/.gitkeep
 
 # ===== Env files (shared, both dirs) =====
 .env

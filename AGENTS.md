@@ -70,6 +70,8 @@ docker run --name go-postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=godb 
 | Backend dev       | `cd backend && uvicorn app.main:app --reload` |
 | DB migration      | `cd backend && alembic revision --autogenerate -m "..."` |
 | DB upgrade        | `cd backend && alembic upgrade head`          |
+| Backend tests     | `cd backend && .venv/bin/python tests/test_katago.py` |
+| Analyze custom SGF| `cd backend && .venv/bin/python tests/test_katago.py <path/to/game.sgf>` |
 
 ## Code style
 
@@ -80,8 +82,7 @@ docker run --name go-postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=godb 
   SQLAlchemy models in `app/models/`, business logic in `app/services/`,
   routes thin in `app/routers/`.
 
-Expected backend structure (build out files as they're needed — not all of
-these exist yet, this is the target shape):
+Current backend structure:
 
 ```
 backend/
@@ -90,22 +91,65 @@ backend/
 │   ├── main.py          FastAPI app instance + route registration (app.main:app)
 │   ├── config.py         Settings loaded from .env via pydantic-settings
 │   ├── database.py       SQLAlchemy engine/session setup
-│   ├── models/           SQLAlchemy models (users, games, moves, analysis)
-│   ├── schemas/           Pydantic request/response models
-│   ├── routers/           FastAPI route handlers
-│   ├── services/          KataGo wrapper, LLM prompt building, SGF parsing
-│   └── workers/           Background job logic for full-game analysis
-├── alembic/               Migrations
-├── .venv/                  Python virtual environment (gitignored)
+│   ├── models/           SQLAlchemy models
+│   │   ├── __init__.py
+│   │   └── game.py       User, Game, Move, AnalysisResult models + cascade rules
+│   ├── schemas/          Pydantic request/response models
+│   │   ├── __init__.py
+│   │   ├── game.py       GameCreate, GameResponse, GameSummaryResponse
+│   │   └── move.py       MoveBase, MoveCreate, MoveResponse
+│   ├── routers/          FastAPI route handlers
+│   │   ├── __init__.py
+│   │   └── games.py      POST /games, POST /games/upload, GET /games, GET /games/{id}, DELETE /games/{id}
+│   ├── services/         Business logic
+│   │   ├── __init__.py
+│   │   ├── sgf_service.py     SGF parsing, encoding fallbacks, GTP coordinate formatting
+│   │   └── katago_service.py  KataGo wrapper, whole-game batching, pure-code threshold logic
+│   └── workers/          Background job logic for full-game analysis (Phase 4)
+├── katago/               KataGo engine assets
+│   ├── analysis.cfg      Hardware-tuned CPU analysis config (2 threads, batch size 4, 100 max visits)
+│   ├── bin/              KataGo executable (gitignored)
+│   ├── models/           Neural network weights (e.g. net_b6c96.bin.gz, gitignored)
+│   └── logs/             KataGo engine runtime logs (gitignored)
+├── tests/                Test suite and testing helpers
+│   ├── test_katago.py    Integration tests (verdicts, mock engine, real KataGo, SGF pipeline)
+│   └── custom_sgfs/      Drop custom .sgf files here for manual testing (gitignored, .gitkeep tracked)
+├── alembic/              Migrations (94848062fa97_initial_tables.py applied)
+├── .venv/                Python virtual environment (gitignored)
 ├── requirements.txt
-└── .env                   Local secrets (gitignored)
+└── .env                  Local secrets (gitignored)
 ```
 
-If `app/main.py` doesn't exist yet when you're picking up a task, that means
-the backend is still being scaffolded — check with the person before assuming
-routes/models referenced elsewhere in this file already exist.
 - Prefer explicit, typed code on both sides (TypeScript strict, Python type
   hints) over clever/implicit patterns.
+
+## Current Project Status & Completed Modules
+
+1. **Phase 1: Database & Migrations (Complete)**
+   - PostgreSQL runs via Docker (`go-postgres` container) on port 5432.
+   - Dynamic `.env` parsing in `scripts/db-up.js` and absolute path resolution in `app/config.py`.
+   - Models: `User`, `Game`, `Move`, `AnalysisResult`.
+   - Cascading deletion verified at Postgres DDL level (`ondelete="CASCADE"`) and SQLAlchemy level (`cascade="all, delete-orphan"`).
+   - Migration `94848062fa97_initial_tables.py` applied; zero drift.
+
+2. **Phase 2: SGF Ingestion & API Endpoints (Complete)**
+   - `app/services/sgf_service.py`: Multi-encoding decoder (UTF-8, UTF-8-SIG, GBK, Shift-JIS, ISO-8859-1), metadata extraction, board size detection (`board_size`), and GTP coordinate formatting.
+   - `app/routers/games.py`: JSON game creation (`POST /games`), multipart file upload (`POST /games/upload`), list games with move counts (`GET /games`), game details (`GET /games/{id}`), and delete (`DELETE /games/{id}`).
+
+3. **Phase 3: KataGo Analysis Wrapper (Complete)**
+   - `app/services/katago_service.py`:
+     - Protocol/ABC `KataGoEngine` with `MockKataGoEngine` (instant zero-CPU tests) and `RealKataGoEngine`.
+     - Subprocess management communicating with `katago analysis` over JSON lines via stdin/stdout.
+     - **Whole-game batching** (`analyzeTurns: [0..N]`) for single-roundtrip MCTS tree reuse.
+     - **Pure-code verdict calculation** (`calculate_verdict`): thresholds for `good`, `neutral`, `mistake`, `blunder` purely from `score_loss` and `winrate_loss`. KataGo is ground truth — LLM never assigns verdicts.
+     - Tuned for low-power/mobile multi-core CPUs (e.g. Surface laptop): 2 threads, batch size 4, 100 max visits, `net_b6c96` neural net (~3.7 MB).
+     - Factory function `get_katago_engine()` with automatic graceful fallback to mock mode if binary/model is absent.
+   - `tests/test_katago.py`: Full integration test suite + custom SGF testing runner (`tests/custom_sgfs/`).
+
+4. **Next Phase: Phase 4 — Job Orchestration / Background Worker**
+   - Asynchronous worker to analyze uploaded games in the background.
+   - State machine transition: `Game.status`: `pending` -> `analyzing` -> `completed` / `failed`.
+   - Persist move evaluations into the `analysis_results` table.
 
 ## Architecture rules an agent should not violate
 
@@ -142,9 +186,9 @@ Before declaring a task done:
 - Frontend: `bun run lint` passes, `bun run dev` boots without errors.
 - Backend: `uvicorn app.main:app --reload` boots, relevant endpoint(s)
   manually verified via `/docs` (FastAPI's Swagger UI) or a quick curl.
-
-No automated test suite exists yet. Once one is added (likely `pytest` for
-backend, `vitest`/`playwright` for frontend), update this section with the
-actual run commands (e.g. `cd backend && pytest`) and treat a passing suite
-as a requirement before marking a task done — this note is a placeholder
-until that happens.
+- Run the backend test suite:
+  ```bash
+  cd backend && .venv/bin/python tests/test_katago.py
+  ```
+  All tests must pass. When adding new engine or parsing capabilities, add
+  corresponding unit/integration tests to `backend/tests/`.
