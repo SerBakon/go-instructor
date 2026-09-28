@@ -25,6 +25,7 @@ class ParsedGame:
     rules: str
     result: Optional[str]
     moves: List[ParsedMove] = field(default_factory=list)
+    board_size: int = 19
 
 
 def parse_sgf(raw_sgf: str) -> ParsedGame:
@@ -154,6 +155,7 @@ def parse_sgf(raw_sgf: str) -> ParsedGame:
             rules=rules,
             result=result,
             moves=parsed_moves,
+            board_size=sgf_game.get_size(),
         )
     except Exception as e:
         raise SGFParseError(f"Error parsing SGF structure: {str(e)}") from e
