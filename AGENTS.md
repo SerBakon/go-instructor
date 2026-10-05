@@ -70,7 +70,10 @@ docker run --name go-postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=godb 
 | Backend dev       | `cd backend && uvicorn app.main:app --reload` |
 | DB migration      | `cd backend && alembic revision --autogenerate -m "..."` |
 | DB upgrade        | `cd backend && alembic upgrade head`          |
-| Backend tests     | `cd backend && .venv/bin/python tests/test_katago.py` |
+| Backend KataGo test| `cd backend && .venv/bin/python tests/test_katago.py` |
+| Backend Worker test| `cd backend && .venv/bin/python tests/test_worker.py` |
+| Backend LLM test  | `cd backend && .venv/bin/python tests/test_llm.py`    |
+| All backend tests | `cd backend && .venv/bin/python tests/test_katago.py && .venv/bin/python tests/test_worker.py && .venv/bin/python tests/test_llm.py` |
 | Analyze custom SGF| `cd backend && .venv/bin/python tests/test_katago.py <path/to/game.sgf>` |
 
 ## Code style
@@ -96,16 +99,20 @@ backend/
 │   │   └── game.py       User, Game, Move, AnalysisResult models + cascade rules
 │   ├── schemas/          Pydantic request/response models
 │   │   ├── __init__.py
+│   │   ├── analysis.py   AnalysisResultResponse, MoveWithAnalysisResponse, GameAnalysisResponse
 │   │   ├── game.py       GameCreate, GameResponse, GameSummaryResponse
 │   │   └── move.py       MoveBase, MoveCreate, MoveResponse
 │   ├── routers/          FastAPI route handlers
 │   │   ├── __init__.py
-│   │   └── games.py      POST /games, POST /games/upload, GET /games, GET /games/{id}, DELETE /games/{id}
+│   │   └── games.py      POST /games, POST /games/upload, GET /games, GET /games/{id}, DELETE /games/{id}, POST /games/{id}/analyze, GET /games/{id}/analysis
 │   ├── services/         Business logic
 │   │   ├── __init__.py
 │   │   ├── sgf_service.py     SGF parsing, encoding fallbacks, GTP coordinate formatting
-│   │   └── katago_service.py  KataGo wrapper, whole-game batching, pure-code threshold logic
-│   └── workers/          Background job logic for full-game analysis (Phase 4)
+│   │   ├── katago_service.py  KataGo wrapper, whole-game batching, pure-code threshold logic
+│   │   └── llm_service.py     Google Gemini teaching explanations, structured output, fallback handling
+│   └── workers/          Background job logic for full-game analysis
+│       ├── __init__.py
+│       └── analysis_worker.py Full-game analysis pipeline (KataGo pass + selective Gemini explanation pass)
 ├── katago/               KataGo engine assets
 │   ├── analysis.cfg      Hardware-tuned CPU analysis config (2 threads, batch size 4, 100 max visits)
 │   ├── bin/              KataGo executable (gitignored)
@@ -113,6 +120,8 @@ backend/
 │   └── logs/             KataGo engine runtime logs (gitignored)
 ├── tests/                Test suite and testing helpers
 │   ├── test_katago.py    Integration tests (verdicts, mock engine, real KataGo, SGF pipeline)
+│   ├── test_worker.py    Worker orchestration and DB persistence tests
+│   ├── test_llm.py       Gemini integration, prompt formatting, selective explanations & fallback tests
 │   └── custom_sgfs/      Drop custom .sgf files here for manual testing (gitignored, .gitkeep tracked)
 ├── alembic/              Migrations (94848062fa97_initial_tables.py applied)
 ├── .venv/                Python virtual environment (gitignored)
@@ -146,10 +155,38 @@ backend/
      - Factory function `get_katago_engine()` with automatic graceful fallback to mock mode if binary/model is absent.
    - `tests/test_katago.py`: Full integration test suite + custom SGF testing runner (`tests/custom_sgfs/`).
 
-4. **Next Phase: Phase 4 — Job Orchestration / Background Worker**
-   - Asynchronous worker to analyze uploaded games in the background.
-   - State machine transition: `Game.status`: `pending` -> `analyzing` -> `completed` / `failed`.
-   - Persist move evaluations into the `analysis_results` table.
+4. **Phase 4: Job Orchestration / Background Worker (Complete)**
+   - Asynchronous worker (`backend/app/workers/analysis_worker.py`: `process_game_analysis`) that executes KataGo evaluations, manages state transitions (`pending` -> `analyzing` -> `completed` / `failed`), and performs idempotent upserts into `analysis_results`.
+   - Schemas in `backend/app/schemas/analysis.py`: `AnalysisResultResponse`, `MoveWithAnalysisResponse`, `GameAnalysisResponse`, `AnalysisTriggerResponse`.
+   - Endpoints in `backend/app/routers/games.py`:
+     - `POST /games/{id}/analyze`: Triggers or re-runs background analysis (202 Accepted).
+     - `GET /games/{id}/analysis`: Retrieves full game details and move evaluations.
+   - Integration test suite `backend/tests/test_worker.py` passing 100%.
+
+5. **Phase 6: LLM Teaching Explanation Pass (Complete)**
+   - `backend/app/services/llm_service.py`: Google Gemini API (`gemini-3.8-flash`) integration via `google-genai` SDK using structured JSON schema output (`GameExplanationsPayload`).
+   - Persona: Experienced, encouraging Go coach explaining *why* the played move was faulty and *what* KataGo's recommended alternative achieves (shape, eye space, sente/gote, thickness/weakness).
+   - Strict selective execution: called ONLY for flagged moves (`mistake` and `blunder`). Unflagged moves (`good` and `neutral`) remain `explanation = None`.
+   - Resilient error handling: if the Gemini API key is missing or an error occurs (503 high demand, quota, network), it populates `"There was an error with the LLM response. Please try again later."` without crashing or aborting engine evaluation.
+   - Integrated into `analysis_worker.py` and persisted into `analysis_results.explanation`.
+   - Test suite `backend/tests/test_llm.py` passing 100%.
+
+6. **Next Immediate Phase: Phase 7 — User Authentication & Game Ownership**
+   - User database model: Add `hashed_password` to `users` table via Alembic migration (`alembic revision --autogenerate -m "add hashed_password to users"`).
+   - Security utilities: Password hashing via `bcrypt`, JWT access token issuance and verification (`pyjwt`).
+   - Authentication endpoints (`backend/app/routers/auth.py`):
+     - `POST /auth/register`: Create user account with email + password.
+     - `POST /auth/login`: Authenticate and return JWT token.
+     - `GET /auth/me`: Return authenticated user info.
+   - Dependency `get_current_user` in FastAPI for route protection.
+   - Multi-tenant game ownership:
+     - `POST /games` and `POST /games/upload` associate `user_id = current_user.id`.
+     - `GET /games` filters to list only the logged-in user's games.
+     - `GET /games/{id}`, `DELETE /games/{id}`, and `POST /games/{id}/analyze` verify that `game.user_id == current_user.id` (prevent cross-user access/modification).
+
+7. **Subsequent Phases**:
+   - **Phase 8: Frontend Consumption Contract**: Validate Next.js API client models and auth headers.
+   - **Phase 9: Frontend UI**: Next.js 15 UI with auth forms, SGF file uploader, interactive Go board viewer, winrate graph timeline, and teaching explanation sidebar.
 
 ## Architecture rules an agent should not violate
 
@@ -159,10 +196,13 @@ backend/
 2. **The LLM is only called for flagged moves**, not every move in a game.
    Don't remove the filtering step to "simplify" — it's a deliberate cost and
    quality control.
-3. **Long-running analysis (KataGo pass + LLM calls) runs as a background
+3. **LLM failures must degrade gracefully.** An LLM API error, quota limit, or
+   demand spike must populate the user-facing fallback error message and must
+   never fail or roll back the objective KataGo evaluation.
+4. **Long-running analysis (KataGo pass + LLM calls) runs as a background
    job**, not inline in a request/response cycle. Don't add a synchronous
    endpoint that blocks on a full game analysis.
-4. **Never commit `.env`, API keys, or DB credentials.** Each project keeps
+5. **Never commit `.env`, API keys, or DB credentials.** Each project keeps
    its own env file (`backend/.env`, and `frontend/.env.local` if ever
    needed) — there is no shared root `.env`. If you introduce a new secret,
    add a documented, no-real-values entry to that project's `.env.example`
@@ -186,9 +226,9 @@ Before declaring a task done:
 - Frontend: `bun run lint` passes, `bun run dev` boots without errors.
 - Backend: `uvicorn app.main:app --reload` boots, relevant endpoint(s)
   manually verified via `/docs` (FastAPI's Swagger UI) or a quick curl.
-- Run the backend test suite:
+- Run the full backend test suite:
   ```bash
-  cd backend && .venv/bin/python tests/test_katago.py
+  cd backend && .venv/bin/python tests/test_katago.py && .venv/bin/python tests/test_worker.py && .venv/bin/python tests/test_llm.py
   ```
-  All tests must pass. When adding new engine or parsing capabilities, add
+  All tests must pass. When adding new engine, auth, or analysis capabilities, add
   corresponding unit/integration tests to `backend/tests/`.

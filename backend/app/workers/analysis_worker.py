@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.game import AnalysisResult, Game, Move
 from app.services.katago_service import get_katago_engine
+from app.services.llm_service import FlaggedMoveContext, GameContext, get_llm_service
 from app.services.sgf_service import parse_sgf
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ def process_game_analysis(game_id: int) -> None:
             )
 
         # 5. Persist evaluations into analysis_results table (idempotent upsert)
+        analysis_by_move: dict[int, AnalysisResult] = {}
         for move, ev in zip(moves, evaluations):
             analysis = (
                 db.query(AnalysisResult)
@@ -93,11 +95,51 @@ def process_game_analysis(game_id: int) -> None:
             analysis.score_loss = ev.score_loss
             analysis.best_move = ev.best_move
             analysis.verdict = ev.verdict
+            analysis_by_move[move.move_number] = analysis
 
-        # 6. Transition state to 'completed'
+        # 6. LLM Teaching Explanation pass for flagged moves (mistakes and blunders)
+        flagged_contexts: list[FlaggedMoveContext] = []
+        for idx, (move, ev) in enumerate(zip(moves, evaluations)):
+            if ev.verdict in ("mistake", "blunder"):
+                recent_moves = [
+                    f"#{m.move_number} {m.player} {m.coordinate or 'PASS'}"
+                    for m in moves[max(0, idx - 4) : idx]
+                ]
+                flagged_contexts.append(
+                    FlaggedMoveContext(
+                        move_number=move.move_number,
+                        player=move.player,
+                        coordinate=move.coordinate,
+                        verdict=ev.verdict,
+                        score_loss=ev.score_loss or 0.0,
+                        winrate_loss=ev.winrate_loss or 0.0,
+                        best_move=ev.best_move,
+                        recent_moves=recent_moves,
+                    )
+                )
+
+        if flagged_contexts:
+            logger.info(
+                "Requesting LLM explanations for %d flagged move(s) in game %d",
+                len(flagged_contexts),
+                game_id,
+            )
+            llm_service = get_llm_service()
+            game_context = GameContext(
+                black_player=game.black_player,
+                white_player=game.white_player,
+                board_size=board_size,
+            )
+            explanations = llm_service.explain_flagged_moves(game_context, flagged_contexts)
+
+            for move_num, explanation_text in explanations.items():
+                if move_num in analysis_by_move:
+                    analysis_by_move[move_num].explanation = explanation_text
+
+        # 7. Transition state to 'completed'
         game.status = "completed"
         db.commit()
-        logger.info("Successfully completed KataGo analysis for game %d", game_id)
+        logger.info("Successfully completed full analysis and LLM explanation pass for game %d", game_id)
 
     except Exception as e:
         logger.exception("Failed analyzing game %d: %s", game_id, e)

@@ -20,7 +20,7 @@ explanation for the moves KataGo flagged as significant.
 - FastAPI (Python)
 - Postgres, via SQLAlchemy + Alembic migrations
 - KataGo (analysis engine, run as a local process)
-- Anthropic API (move explanations)
+- Google Gemini API (`gemini-3.8-flash` for move explanations)
 
 **Repo structure** — two independent projects in one repo (not a JS
 monorepo/workspace):
@@ -40,7 +40,7 @@ monorepo/workspace):
 - Python 3.10+
 - [Docker](https://www.docker.com/) (for local Postgres)
 - A KataGo binary + neural net weights ([katago install guide](https://github.com/lightvector/KataGo))
-- An Anthropic API key
+- A Google Gemini API key
 
 ## Features & Current Status
 
@@ -58,9 +58,18 @@ monorepo/workspace):
   - **CPU-Tuned Engine**: Configured for multi-core CPUs (`numAnalysisThreads = 1`, `numSearchThreadsPerAnalysisThread = 2`, `numEigenThreadsPerModel = 2`, `nnMaxBatchSize = 4`, `maxVisits = 100`) using AVX2 vector instructions and the lightweight `b6c96` neural net (~3.7 MB).
   - **Mock Engine Fallback**: Deterministic `MockKataGoEngine` for offline development, testing, and CI without CPU overhead.
 - [x] **Custom SGF Testing Runner**: Drop custom `.sgf` files into `backend/tests/custom_sgfs/` (gitignored) to run standalone evaluation and view flagged mistake/blunder tables.
-- [ ] **Background Job Orchestration**: Asynchronous worker to analyze uploaded games in the background and persist results to `analysis_results`.
-- [ ] **LLM Teaching Explanations**: Selective explanation pass with Anthropic Claude for flagged moves (mistakes and blunders only).
-- [ ] **Frontend UI**: Next.js interactive Go board viewer, evaluation graphs, and teaching explanation sidebar.
+- [x] **Background Job Orchestration (Phase 4)**: Asynchronous worker (`process_game_analysis`) that executes KataGo evaluations, handles state transitions (`pending` -> `analyzing` -> `completed` / `failed`), and performs idempotent upserts into `analysis_results`.
+  - `POST /games/{id}/analyze`: Trigger or re-run background analysis (202 Accepted).
+  - `GET /games/{id}/analysis`: Retrieve full move-by-move evaluations with verdicts, score leads, losses, and best moves.
+- [x] **LLM Teaching Explanations (Phase 6)**: Google Gemini API (`gemini-3.8-flash`) integration with structured JSON generation.
+  - Strictly called for flagged moves (`mistake` and `blunder` only) to explain why the move was faulty and why the engine's suggested move is better.
+  - Unflagged moves (`good` and `neutral`) remain `None`.
+  - Graceful degradation: API failure or missing keys populate `"There was an error with the LLM response. Please try again later."` without breaking engine evaluations.
+- [ ] **User Authentication & Game Ownership (Phase 7)**:
+  - Add `hashed_password` to `users` table via Alembic migration.
+  - Auth endpoints: `POST /auth/register`, `POST /auth/login`, `GET /auth/me` using JWT and bcrypt.
+  - Multi-tenant game scoping: users can only view, analyze, and delete their own games.
+- [ ] **Frontend UI (Phase 8)**: Next.js 15 interactive Go board viewer, evaluation graphs, auth forms, and teaching explanation sidebar.
 
 ## Setup
 
@@ -78,7 +87,8 @@ Then create `backend/.env` (see `backend/.env.example`):
 
 ```bash
 DATABASE_URL=postgresql://postgres:1234@localhost:5432/go_instructor
-ANTHROPIC_API_KEY=sk-your-key-here
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-3.8-flash
 
 # KataGo settings (optional overrides — default to backend/katago/ paths)
 KATAGO_PATH=katago/bin/katago
@@ -104,11 +114,18 @@ Next.js frontend, all at once, with labeled/colored output.
 
 ## Testing & Analyzing SGFs
 
-Run the backend integration test suite (verifies verdict logic, mock engine, real KataGo engine, and SGF pipeline):
+Run the backend test suites:
 
 ```bash
 cd backend
+# 1. Engine & SGF tests
 .venv/bin/python tests/test_katago.py
+
+# 2. Worker & DB persistence tests
+.venv/bin/python tests/test_worker.py
+
+# 3. LLM explanation & Gemini fallback tests
+.venv/bin/python tests/test_llm.py
 ```
 
 ### Analyzing Custom SGF Files

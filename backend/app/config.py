@@ -8,6 +8,8 @@ ENV_PATH = BACKEND_DIR / ".env"
 class Settings(BaseSettings):
     database_url: str
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-flash"
     katago_path: str = str(BACKEND_DIR / "katago" / "bin" / "katago")
     katago_model_path: str = str(BACKEND_DIR / "katago" / "models" / "net_b6c96.bin.gz")
     katago_config_path: str = str(BACKEND_DIR / "katago" / "analysis.cfg")
