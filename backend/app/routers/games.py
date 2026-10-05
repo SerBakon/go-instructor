@@ -1,11 +1,23 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.game import Game, Move, User
+from app.schemas.analysis import AnalysisTriggerResponse, GameAnalysisResponse
 from app.schemas.game import GameCreate, GameResponse, GameSummaryResponse
 from app.services.sgf_service import SGFParseError, parse_sgf
+from app.workers.analysis_worker import process_game_analysis
 
 router = APIRouter(prefix="/games", tags=["games"])
 
@@ -87,21 +99,31 @@ def _save_game_and_moves(
 
 
 @router.post("", response_model=GameResponse, status_code=status.HTTP_201_CREATED)
-def create_game(payload: GameCreate, db: Session = Depends(get_db)):
+def create_game(
+    payload: GameCreate,
+    background_tasks: BackgroundTasks,
+    auto_analyze: bool = Query(True, description="Automatically trigger background KataGo analysis"),
+    db: Session = Depends(get_db),
+):
     """Ingest a new Go game from raw SGF JSON body."""
-    return _save_game_and_moves(
+    game = _save_game_and_moves(
         db=db,
         raw_sgf=payload.raw_sgf,
         title=payload.title,
         user_id=payload.user_id,
     )
+    if auto_analyze:
+        background_tasks.add_task(process_game_analysis, game.id)
+    return game
 
 
 @router.post("/upload", response_model=GameResponse, status_code=status.HTTP_201_CREATED)
 async def upload_game_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="SGF file to upload (.sgf)"),
     title: Optional[str] = Form(None, description="Optional custom title for the game"),
     user_id: Optional[int] = Form(None, description="Optional user ID"),
+    auto_analyze: bool = Query(True, description="Automatically trigger background KataGo analysis"),
     db: Session = Depends(get_db),
 ):
     """Ingest a new Go game by uploading an SGF file (e.g. from frontend drag-and-drop)."""
@@ -139,13 +161,16 @@ async def upload_game_file(
         if base_name:
             fallback_title = base_name
 
-    return _save_game_and_moves(
+    game = _save_game_and_moves(
         db=db,
         raw_sgf=raw_sgf,
         title=title,
         user_id=user_id,
         fallback_title=fallback_title,
     )
+    if auto_analyze:
+        background_tasks.add_task(process_game_analysis, game.id)
+    return game
 
 
 
@@ -190,3 +215,49 @@ def delete_game(game_id: int, db: Session = Depends(get_db)):
     db.delete(game)
     db.commit()
     return None
+
+
+@router.post(
+    "/{game_id}/analyze",
+    response_model=AnalysisTriggerResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def trigger_game_analysis(
+    game_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Trigger or re-run background KataGo analysis for a game."""
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Game with ID {game_id} not found",
+        )
+
+    if game.status == "analyzing":
+        return AnalysisTriggerResponse(
+            game_id=game_id,
+            status="analyzing",
+            message="Game is currently being analyzed",
+        )
+
+    background_tasks.add_task(process_game_analysis, game_id)
+    return AnalysisTriggerResponse(
+        game_id=game_id,
+        status="analyzing",
+        message="Analysis started in the background",
+    )
+
+
+@router.get("/{game_id}/analysis", response_model=GameAnalysisResponse)
+def get_game_analysis(game_id: int, db: Session = Depends(get_db)):
+    """Fetch complete game analysis with move evaluations, verdicts, and alternatives."""
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Game with ID {game_id} not found",
+        )
+    return game
+
