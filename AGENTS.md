@@ -171,17 +171,19 @@ backend/
    - Integrated into `analysis_worker.py` and persisted into `analysis_results.explanation`.
    - Test suite `backend/tests/test_llm.py` passing 100%.
 
-6. **Next Immediate Phase: Phase 7 — User Authentication & Game Ownership**
-   - User database model: Add `hashed_password` to `users` table via Alembic migration (`alembic revision --autogenerate -m "add hashed_password to users"`).
-   - Security utilities: Password hashing via `bcrypt`, JWT access token issuance and verification (`pyjwt`).
+6. **Next Immediate Phase: Phase 7 — User Authentication & Game Ownership (Google OAuth)**
+   - Complete technical specification and console setup guide documented in `AUTH_PLAN.md`.
+   - **Google OAuth Only**: Bypass standard email/password signup to avoid email verification and password resets.
+   - **Mandatory Authentication**: Unauthenticated guests are not allowed to upload or analyze games; all games are strictly linked to `user_id = current_user.id`.
+   - User database model: Add `google_id`, `display_name`, and `avatar_url` to `users` table via Alembic migration (`alembic revision --autogenerate -m "add google_id and profile fields to users"`).
+   - Security utilities: JWT access token issuance and verification via `pyjwt`, token verification via `google-auth` (`verify_oauth2_token`).
    - Authentication endpoints (`backend/app/routers/auth.py`):
-     - `POST /auth/register`: Create user account with email + password.
-     - `POST /auth/login`: Authenticate and return JWT token.
-     - `GET /auth/me`: Return authenticated user info.
-   - Dependency `get_current_user` in FastAPI for route protection.
+     - `POST /auth/google`: Verify Google ID token, upsert user in DB, and issue backend access token.
+     - `GET /auth/me`: Return authenticated user info and game count.
+   - Dependency `get_current_user` in FastAPI for route protection (enforces 401 on unauthenticated access).
    - Multi-tenant game ownership:
-     - `POST /games` and `POST /games/upload` associate `user_id = current_user.id`.
-     - `GET /games` filters to list only the logged-in user's games.
+     - `POST /games` and `POST /games/upload` require auth and associate `user_id = current_user.id`.
+     - `GET /games` requires auth and filters to list only the logged-in user's games.
      - `GET /games/{id}`, `DELETE /games/{id}`, and `POST /games/{id}/analyze` verify that `game.user_id == current_user.id` (prevent cross-user access/modification).
 
 7. **Subsequent Phases**:
