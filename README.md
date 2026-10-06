@@ -39,7 +39,7 @@ monorepo/workspace):
 - [Bun](https://bun.sh)
 - Python 3.10+
 - [Docker](https://www.docker.com/) (for local Postgres)
-- A KataGo binary + neural net weights ([katago install guide](https://github.com/lightvector/KataGo))
+- A KataGo binary + neural net weights (see [KataGo Setup](#katago-setup-binary--neural-net))
 - A Google Gemini API key
 
 ## Features & Current Status
@@ -82,6 +82,21 @@ bun setup
 This installs frontend dependencies, creates the backend Python virtual
 environment and installs its dependencies, and starts a local Postgres
 container.
+
+### KataGo Setup (Binary & Neural Net)
+
+KataGo requires the engine binary and neural network weights:
+
+1. **KataGo Binary**: Download the executable for your OS from [KataGo Releases](https://github.com/lightvector/KataGo/releases) and place it in `backend/katago/bin/katago` (or `katago.exe` on Windows). On Linux/macOS, ensure execute permissions:
+   ```bash
+   chmod +x backend/katago/bin/katago
+   ```
+2. **Neural Network Model**: We use the lightweight `b6c96` network (`g170-b6c96-s175395328-d26788732`, ~3.7 MB), tuned for CPU-based evaluation. Download and place it at `backend/katago/models/net_b6c96.bin.gz`:
+   ```bash
+   curl -L -o backend/katago/models/net_b6c96.bin.gz \
+     https://katagoarchive.org/g170/neuralnets/g170-b6c96-s175395328-d26788732.bin.gz
+   ```
+   *(Direct link: [g170-b6c96-s175395328-d26788732.bin.gz](https://katagoarchive.org/g170/neuralnets/g170-b6c96-s175395328-d26788732.bin.gz) from [katagoarchive.org](https://katagoarchive.org/g170/neuralnets/index.html). If binary or model files are missing, the backend gracefully falls back to `MockKataGoEngine` for offline development and testing.)*
 
 Then create `backend/.env` (see `backend/.env.example`):
 
