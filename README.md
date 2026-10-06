@@ -87,12 +87,26 @@ container.
 
 KataGo requires the engine binary and neural network weights:
 
-1. **KataGo Binary**: Download the executable for your OS from [KataGo Releases](https://github.com/lightvector/KataGo/releases) and place it in `backend/katago/bin/katago` (or `katago.exe` on Windows). On Linux/macOS, ensure execute permissions:
+1. **KataGo Binary**: We use **KataGo v1.18.1** (CPU/Eigen build with AVX2 instruction support for fast CPU inference). Place the executable in `backend/katago/bin/katago`:
+
+   **Linux (x64)**:
    ```bash
+   mkdir -p backend/katago/bin
+   curl -L -o /tmp/katago.zip https://github.com/lightvector/KataGo/releases/download/v1.18.1/katago-v1.18.1-eigenavx2-linux-x64.zip
+   unzip -j /tmp/katago.zip katago -d backend/katago/bin/
    chmod +x backend/katago/bin/katago
+   rm /tmp/katago.zip
    ```
+
+   **Windows (x64)**:
+   Download [`katago-v1.18.1-eigenavx2-windows-x64.zip`](https://github.com/lightvector/KataGo/releases/download/v1.18.1/katago-v1.18.1-eigenavx2-windows-x64.zip), extract `katago.exe`, and place it in `backend/katago/bin/katago.exe`.
+
+   **macOS / Other**:
+   Install via Homebrew (`brew install katago`) or download the corresponding release build from [KataGo Releases](https://github.com/lightvector/KataGo/releases). If installed via package manager, update `KATAGO_PATH` in `backend/.env`.
+
 2. **Neural Network Model**: We use the lightweight `b6c96` network (`g170-b6c96-s175395328-d26788732`, ~3.7 MB), tuned for CPU-based evaluation. Download and place it at `backend/katago/models/net_b6c96.bin.gz`:
    ```bash
+   mkdir -p backend/katago/models
    curl -L -o backend/katago/models/net_b6c96.bin.gz \
      https://katagoarchive.org/g170/neuralnets/g170-b6c96-s175395328-d26788732.bin.gz
    ```
