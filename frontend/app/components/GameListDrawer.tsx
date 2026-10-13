@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, RotateCw, Swords, Trash2, X } from "lucide-react";
+import { FolderOpen, Plus, RotateCw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { deleteGame, fetchGames } from "../lib/api";
 import type { GameSummary } from "../lib/types";
@@ -60,9 +60,9 @@ export default function GameListDrawer({
 				{/* Drawer Header */}
 				<div className="mb-4 flex items-center justify-between border-stone-800 border-b pb-4">
 					<div className="flex items-center gap-2">
-						<Swords className="h-5 w-5 text-amber-400" />
+						<FolderOpen className="h-5 w-5 text-stone-300" />
 						<h2 className="font-bold text-base text-stone-100">
-							Analyzed Games
+							Games Library
 						</h2>
 					</div>
 					<div className="flex items-center gap-2">
@@ -93,10 +93,10 @@ export default function GameListDrawer({
 						onClose();
 						onNewGameClick();
 					}}
-					className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 font-semibold text-stone-950 text-xs shadow-lg transition-transform hover:bg-amber-400 active:scale-[0.98]"
+					className="mb-4 flex items-center justify-center gap-2 rounded-lg border border-stone-700 bg-stone-800 py-2 font-medium text-stone-100 text-xs shadow-sm transition-colors hover:border-stone-600 hover:bg-stone-700 active:scale-[0.98]"
 				>
-					<Plus className="h-4 w-4" />
-					Analyze New Game
+					<Plus className="h-4 w-4 text-stone-400" />
+					Upload New Game
 				</button>
 
 				{/* Games List */}

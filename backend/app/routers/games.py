@@ -17,7 +17,7 @@ from app.models.game import Game, Move, User
 from app.schemas.analysis import AnalysisTriggerResponse, GameAnalysisResponse
 from app.schemas.game import GameCreate, GameResponse, GameSummaryResponse
 from app.services.sgf_service import SGFParseError, parse_sgf
-from app.workers.analysis_worker import process_game_analysis
+from app.workers.analysis_worker import process_game_analysis, run_llm_explanations
 
 router = APIRouter(prefix="/games", tags=["games"])
 
@@ -235,11 +235,11 @@ def trigger_game_analysis(
             detail=f"Game with ID {game_id} not found",
         )
 
-    if game.status == "analyzing":
+    if game.status in ("analyzing", "explaining"):
         return AnalysisTriggerResponse(
             game_id=game_id,
-            status="analyzing",
-            message="Game is currently being analyzed",
+            status=game.status,
+            message=f"Game is currently in progress ({game.status})",
         )
 
     background_tasks.add_task(process_game_analysis, game_id)
@@ -247,6 +247,39 @@ def trigger_game_analysis(
         game_id=game_id,
         status="analyzing",
         message="Analysis started in the background",
+    )
+
+
+@router.post(
+    "/{game_id}/explain",
+    response_model=AnalysisTriggerResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def trigger_game_explanations(
+    game_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Trigger or re-run background LLM coaching explanations for flagged moves."""
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Game with ID {game_id} not found",
+        )
+
+    if game.status == "analyzing":
+        return AnalysisTriggerResponse(
+            game_id=game_id,
+            status="analyzing",
+            message="Game is currently undergoing KataGo evaluation; explanations will follow",
+        )
+
+    background_tasks.add_task(run_llm_explanations, game_id)
+    return AnalysisTriggerResponse(
+        game_id=game_id,
+        status="explaining",
+        message="LLM explanation pass started in the background",
     )
 
 

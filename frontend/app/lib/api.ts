@@ -71,6 +71,15 @@ export async function triggerAnalysis(gameId: number): Promise<void> {
 	}
 }
 
+export async function triggerExplanations(gameId: number): Promise<void> {
+	const res = await fetch(`${API_BASE_URL}/games/${gameId}/explain`, {
+		method: "POST",
+	});
+	if (!res.ok) {
+		throw new Error(`Failed to trigger explanations: ${res.statusText}`);
+	}
+}
+
 export async function deleteGame(gameId: number): Promise<void> {
 	const res = await fetch(`${API_BASE_URL}/games/${gameId}`, {
 		method: "DELETE",

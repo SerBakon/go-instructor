@@ -1,13 +1,6 @@
 "use client";
 
-import {
-	FolderOpen,
-	Loader2,
-	Plus,
-	RotateCw,
-	Sparkles,
-	Swords,
-} from "lucide-react";
+import { FolderOpen, Loader2, Plus, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CoachSidebar from "./components/CoachSidebar";
 import GameListDrawer from "./components/GameListDrawer";
@@ -54,7 +47,12 @@ export default function Home() {
 
 	// Background polling when game status is analyzing or pending
 	useEffect(() => {
-		if (!game || (game.status !== "analyzing" && game.status !== "pending")) {
+		if (
+			!game ||
+			(game.status !== "analyzing" &&
+				game.status !== "pending" &&
+				game.status !== "explaining")
+		) {
 			return;
 		}
 
@@ -65,7 +63,7 @@ export default function Home() {
 			} catch (err) {
 				console.error("Polling error", err);
 			}
-		}, 2000);
+		}, 1000);
 
 		return () => clearInterval(pollId);
 	}, [game?.id, game?.status]);
@@ -117,64 +115,71 @@ export default function Home() {
 	return (
 		<div className="flex min-h-screen flex-col bg-stone-950 font-sans text-stone-100">
 			{/* Top Navigation Bar */}
-			<header className="sticky top-0 z-40 flex items-center justify-between border-stone-800/80 border-b bg-stone-900/80 px-6 py-3.5 backdrop-blur-xl">
+			<header className="sticky top-0 z-40 flex items-center justify-between border-stone-800 border-b bg-stone-900/90 px-6 py-3.5 backdrop-blur-xl">
 				<div className="flex items-center gap-3">
-					<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-stone-950 shadow-md ring-1 ring-amber-300/40">
-						<Swords className="h-5 w-5" />
-					</div>
-					<div>
-						<div className="flex items-center gap-2">
-							<h1 className="font-bold text-base text-stone-100 tracking-tight">
-								Go Instructor
-							</h1>
-							<span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-[10px] text-amber-400 ring-1 ring-amber-500/30">
-								KataGo + Gemini AI
-							</span>
+					<div className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-800 bg-stone-950 shadow-sm">
+						<div className="relative h-4 w-4">
+							<div className="absolute top-0 left-0 h-2.5 w-2.5 rounded-full border border-stone-600 bg-stone-900 shadow-sm" />
+							<div className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full border border-stone-300 bg-stone-100 shadow-sm" />
 						</div>
-						<p className="text-[11px] text-stone-400">
-							{game?.title || "AI-Powered Baduk Game Analysis"}
-						</p>
+					</div>
+					<div className="flex items-center gap-2">
+						<h1 className="font-semibold text-base text-stone-100 tracking-tight">
+							Go Instructor
+						</h1>
+						{game?.title && (
+							<>
+								<span className="text-stone-600">/</span>
+								<span className="max-w-xs truncate text-stone-400 text-xs">
+									{game.title}
+								</span>
+							</>
+						)}
 					</div>
 				</div>
 
 				{/* Header Actions */}
-				<div className="flex items-center gap-2.5">
+				<div className="flex items-center gap-2">
 					<button
 						type="button"
 						onClick={() => setIsDrawerOpen(true)}
-						className="flex items-center gap-1.5 rounded-xl border border-stone-800 bg-stone-900/90 px-3.5 py-2 font-medium text-stone-300 text-xs transition-colors hover:border-stone-700 hover:bg-stone-800 hover:text-stone-100"
+						className="flex items-center gap-1.5 rounded-lg border border-stone-800 bg-stone-900/80 px-3 py-1.5 font-medium text-stone-300 text-xs transition-colors hover:border-stone-700 hover:bg-stone-800 hover:text-stone-100"
 					>
-						<FolderOpen className="h-4 w-4 text-stone-400" />
+						<FolderOpen className="h-3.5 w-3.5 text-stone-400" />
 						Games Library
 					</button>
 
 					<button
 						type="button"
 						onClick={() => setIsUploaderOpen(true)}
-						className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 font-semibold text-stone-950 text-xs shadow-md transition-transform hover:bg-amber-400 active:scale-[0.98]"
+						className="flex items-center gap-1.5 rounded-lg border border-stone-700 bg-stone-800 px-3 py-1.5 font-medium text-stone-100 text-xs shadow-sm transition-colors hover:border-stone-600 hover:bg-stone-700 active:scale-[0.98]"
 					>
-						<Plus className="h-4 w-4" />
+						<Plus className="h-3.5 w-3.5 text-stone-400" />
 						Analyze SGF
 					</button>
 				</div>
 			</header>
 
 			{/* Ongoing Analysis Progress Banner */}
-			{game && (game.status === "analyzing" || game.status === "pending") && (
-				<div className="flex items-center justify-between border-amber-500/30 border-b bg-amber-500/10 px-6 py-2.5 text-amber-300 text-xs">
-					<div className="flex items-center gap-2.5">
-						<Loader2 className="h-4 w-4 animate-spin text-amber-400" />
-						<span className="font-medium">
-							KataGo engine is evaluating moves & Gemini AI is generating
-							coaching explanations...
-						</span>
+			{game &&
+				(game.status === "analyzing" ||
+					game.status === "pending" ||
+					game.status === "explaining") && (
+					<div className="flex items-center justify-between border-amber-500/20 border-b bg-amber-500/10 px-6 py-2 text-amber-200 text-xs">
+						<div className="flex items-center gap-2">
+							<Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
+							<span>
+								{game.status === "explaining"
+									? "KataGo analysis ready. Generating instructor explanations..."
+									: "Evaluating moves with KataGo in background..."}
+							</span>
+						</div>
+						<div className="flex items-center gap-1.5 text-[11px] text-amber-400/70">
+							<RotateCw className="h-3 w-3 animate-spin" />
+							<span>Updating</span>
+						</div>
 					</div>
-					<div className="flex items-center gap-2 text-[11px] text-amber-400/80">
-						<span>Auto-updating in live background</span>
-						<RotateCw className="h-3.5 w-3.5 animate-spin" />
-					</div>
-				</div>
-			)}
+				)}
 
 			{/* Main Workspace Layout */}
 			<main className="flex w-full flex-1 flex-col p-4 md:p-6 lg:flex-row lg:gap-6">
@@ -247,29 +252,30 @@ export default function Home() {
 								boardSize={boardSize}
 								moves={game.moves}
 								onSelectMove={setCurrentMoveNumber}
+								gameStatus={game.status}
 							/>
 						</div>
 					</>
 				) : (
 					/* No Game Loaded Placeholder */
 					<div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/30">
-							<Sparkles className="h-8 w-8" />
+						<div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-stone-800 bg-stone-900 text-stone-400 shadow-sm">
+							<FolderOpen className="h-7 w-7" />
 						</div>
-						<h2 className="mt-4 font-bold text-stone-100 text-xl">
-							Welcome to Go Instructor
+						<h2 className="mt-4 font-semibold text-lg text-stone-100">
+							No game loaded
 						</h2>
-						<p className="mt-2 max-w-md text-sm text-stone-400">
-							Upload an SGF file or choose one of our built-in sample games to
-							get KataGo winrates and Gemini AI coaching explanations.
+						<p className="mt-1.5 max-w-sm text-stone-400 text-xs">
+							Upload an SGF file or choose one from the library to review move
+							evaluations and teaching commentary.
 						</p>
 						<button
 							type="button"
 							onClick={() => setIsUploaderOpen(true)}
-							className="mt-6 flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 font-semibold text-sm text-stone-950 shadow-xl transition-transform hover:bg-amber-400 active:scale-[0.98]"
+							className="mt-5 flex items-center gap-2 rounded-lg border border-stone-700 bg-stone-800 px-4 py-2 font-medium text-stone-100 text-xs shadow-sm transition-colors hover:border-stone-600 hover:bg-stone-700 active:scale-[0.98]"
 						>
-							<Plus className="h-4 w-4" />
-							Analyze a Game Now
+							<Plus className="h-4 w-4 text-stone-400" />
+							Upload a Game
 						</button>
 					</div>
 				)}

@@ -31,7 +31,7 @@ export interface GameAnalysis {
 	komi: number;
 	rules: string;
 	result: string | null;
-	status: "pending" | "analyzing" | "completed" | "failed";
+	status: "pending" | "analyzing" | "explaining" | "completed" | "failed";
 	board_size?: number;
 	created_at: string | null;
 	updated_at: string | null;
@@ -47,7 +47,7 @@ export interface GameSummary {
 	komi: number;
 	rules: string;
 	result: string | null;
-	status: "pending" | "analyzing" | "completed" | "failed";
+	status: "pending" | "analyzing" | "explaining" | "completed" | "failed";
 	board_size?: number;
 	move_count: number;
 	created_at: string | null;

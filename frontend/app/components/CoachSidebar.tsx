@@ -4,12 +4,13 @@ import {
 	AlertCircle,
 	AlertTriangle,
 	Award,
-	Bot,
+	BookOpen,
 	CheckCircle2,
 	ChevronLeft,
 	ChevronRight,
 	Compass,
 	Lightbulb,
+	Loader2,
 	TrendingDown,
 } from "lucide-react";
 import type { MoveWithAnalysis } from "../lib/types";
@@ -21,6 +22,7 @@ interface CoachSidebarProps {
 	boardSize?: number;
 	moves: MoveWithAnalysis[];
 	onSelectMove: (moveNumber: number) => void;
+	gameStatus?: string;
 }
 
 export default function CoachSidebar({
@@ -30,6 +32,7 @@ export default function CoachSidebar({
 	boardSize = 19,
 	moves,
 	onSelectMove,
+	gameStatus,
 }: CoachSidebarProps) {
 	const analysis = currentMove?.analysis;
 	const verdict = analysis?.verdict ?? null;
@@ -200,7 +203,7 @@ export default function CoachSidebar({
 				<div className="flex items-center justify-between rounded-xl border border-sky-900/40 bg-sky-950/30 p-3 text-xs shadow-sm">
 					<div className="flex items-center gap-2">
 						<Compass className="h-4 w-4 text-sky-400" />
-						<span className="text-stone-300">KataGo Suggested:</span>
+						<span className="text-stone-300">Suggested:</span>
 					</div>
 					<div className="flex items-center gap-2">
 						<span className="rounded bg-sky-500/20 px-2 py-0.5 font-bold font-mono text-sky-300 text-sm ring-1 ring-sky-500/30">
@@ -210,12 +213,12 @@ export default function CoachSidebar({
 				</div>
 			)}
 
-			{/* AI Teacher Coaching Explanation Card */}
-			<div className="flex flex-1 flex-col rounded-xl border border-amber-900/30 bg-gradient-to-b from-amber-950/20 to-stone-950/80 p-4 shadow-xl">
-				<div className="mb-2 flex items-center gap-2 border-amber-900/30 border-b pb-2 text-amber-300">
-					<Bot className="h-4 w-4 text-amber-400" />
+			{/* Instructor Commentary Card */}
+			<div className="flex flex-1 flex-col rounded-xl border border-stone-800 bg-stone-900/60 p-4 shadow-sm">
+				<div className="mb-2 flex items-center gap-2 border-stone-800 border-b pb-2 text-stone-300">
+					<BookOpen className="h-4 w-4 text-amber-400" />
 					<h3 className="font-semibold text-xs tracking-wide">
-						AI Instructor Commentary
+						Instructor Commentary
 					</h3>
 				</div>
 
@@ -233,8 +236,8 @@ export default function CoachSidebar({
 								</span>
 							</div>
 							<p className="text-stone-400">
-								KataGo confirms this play preserves the balance of territory and
-								thickness without loss of initiative.
+								This play preserves the balance of territory and thickness
+								without loss of initiative.
 							</p>
 						</div>
 					) : verdict === "neutral" ? (
@@ -250,10 +253,24 @@ export default function CoachSidebar({
 								balanced.
 							</p>
 						</div>
+					) : (verdict === "mistake" || verdict === "blunder") &&
+						(gameStatus === "analyzing" || gameStatus === "explaining") ? (
+						<div className="flex flex-col gap-2 pt-2 text-stone-400 text-xs">
+							<div className="flex items-center gap-2 text-amber-400">
+								<Loader2 className="h-3.5 w-3.5 animate-spin" />
+								<span className="font-medium text-amber-300">
+									Loading explanations...
+								</span>
+							</div>
+							<p className="text-stone-400">
+								Move flagged as a {verdict}. Instructor commentary is being
+								generated...
+							</p>
+						</div>
 					) : currentMoveNumber === 0 ? (
 						<p className="pt-2 text-stone-400 text-xs italic">
-							Use the arrow keys or scrubber below to step through moves and
-							view AI evaluations.
+							Use the arrow keys or scrubber above to step through moves and
+							view evaluations.
 						</p>
 					) : (
 						<p className="pt-2 text-stone-400 text-xs italic">

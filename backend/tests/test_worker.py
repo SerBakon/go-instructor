@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.main import app
 from app.models.game import AnalysisResult, Game, Move
-from app.workers.analysis_worker import process_game_analysis
+from app.workers.analysis_worker import (
+    process_game_analysis,
+    run_katago_analysis,
+    run_llm_explanations,
+)
 
 client = TestClient(app)
 
@@ -136,9 +140,69 @@ def test_api_analysis_endpoints():
     print("✓ Cascading delete verified (game, moves, and analysis_results cleaned up).")
 
 
+def test_two_phase_analysis():
+    print("\nTesting two-phase analysis pipeline (KataGo first -> LLM explanation second)...")
+    db: Session = SessionLocal()
+    try:
+        # Ingest game with auto_analyze=False
+        res = client.post("/games", json={"raw_sgf": SAMPLE_SGF, "title": "Two-Phase Game"}, params={"auto_analyze": False})
+        assert res.status_code == 201
+        game_id = res.json()["id"]
+
+        # Run Phase 1: KataGo analysis directly
+        game = db.query(Game).filter(Game.id == game_id).first()
+        results = run_katago_analysis(db, game)
+        assert len(results) == 7
+
+        # Verify state is 'explaining' (because moves 6 and 7 were blunders/mistakes)
+        db.expire_all()
+        game = db.query(Game).filter(Game.id == game_id).first()
+        assert game.status == "explaining", f"Expected 'explaining', got '{game.status}'"
+
+        # Verify GET /games/{game_id}/analysis already returns winrates and suggested moves
+        res_intermediate = client.get(f"/games/{game_id}/analysis")
+        assert res_intermediate.status_code == 200
+        intermediate_data = res_intermediate.json()
+        assert intermediate_data["status"] == "explaining"
+        for m in intermediate_data["moves"]:
+            assert m["analysis"] is not None
+            assert m["analysis"]["winrate"] is not None
+            assert m["analysis"]["verdict"] is not None
+            # Explanations have not been populated yet in Phase 1
+            assert m["analysis"]["explanation"] is None
+
+        print("✓ Phase 1 verified: KataGo evaluations committed immediately with status 'explaining'.")
+
+        # Run Phase 2: Trigger explanations via POST /games/{game_id}/explain
+        res_explain = client.post(f"/games/{game_id}/explain")
+        assert res_explain.status_code == 202
+        assert res_explain.json()["status"] == "explaining"
+
+        # Verify completed analysis with explanations
+        res_completed = client.get(f"/games/{game_id}/analysis")
+        assert res_completed.status_code == 200
+        completed_data = res_completed.json()
+        assert completed_data["status"] == "completed"
+
+        # Flagged moves 6 and 7 should have explanations
+        flagged_count = 0
+        for m in completed_data["moves"]:
+            if m["analysis"]["verdict"] in ("mistake", "blunder"):
+                assert m["analysis"]["explanation"] is not None
+                flagged_count += 1
+        assert flagged_count >= 2
+        print(f"✓ Phase 2 verified: LLM explanations populated for {flagged_count} flagged moves.")
+
+        # Clean up
+        client.delete(f"/games/{game_id}")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     test_direct_worker_execution()
     test_api_analysis_endpoints()
+    test_two_phase_analysis()
     print("\n===============================")
     print("ALL PHASE 4 WORKER TESTS PASSED!")
     print("===============================")

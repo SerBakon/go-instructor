@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "Go Instructor — AI Baduk Coaching & Analysis",
+	title: "Go Instructor — Baduk Game Analysis",
 	description:
-		"Upload and analyze Go (baduk) games with KataGo winrate evaluations and Gemini AI coaching explanations.",
+		"Upload and analyze Go (baduk) games with move-by-move evaluations and teaching commentary.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

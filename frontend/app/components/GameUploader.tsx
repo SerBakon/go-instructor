@@ -1,6 +1,6 @@
 "use client";
 
-import { Code2, FileUp, PlayCircle, Sparkles, Upload, X } from "lucide-react";
+import { Code2, FileUp, PlayCircle, Upload, X } from "lucide-react";
 import { type DragEvent, useState } from "react";
 import { createGameFromRawSgf, uploadSgfFile } from "../lib/api";
 import { SAMPLE_GAMES, type SampleGame } from "../lib/sample-games";
@@ -149,7 +149,7 @@ export default function GameUploader({
 							: "text-stone-400 hover:text-stone-200"
 					}`}
 				>
-					<Sparkles className="h-3.5 w-3.5 text-amber-400" />
+					<PlayCircle className="h-3.5 w-3.5" />
 					Sample Games
 				</button>
 			</div>
@@ -287,7 +287,7 @@ export default function GameUploader({
 			{isSubmitting && (
 				<div className="mt-4 flex items-center justify-center gap-2 text-amber-400 text-xs">
 					<span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-					<span>Uploading game and initiating KataGo analysis...</span>
+					<span>Uploading game and starting analysis...</span>
 				</div>
 			)}
 		</div>

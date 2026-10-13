@@ -338,7 +338,7 @@ export default function GoBoard({
 											textAnchor="middle"
 											className="fill-white font-bold text-[12px]"
 										>
-											AI
+											★
 										</text>
 									</g>
 								);
