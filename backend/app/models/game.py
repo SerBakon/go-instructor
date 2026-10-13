@@ -52,6 +52,21 @@ class Game(Base):
     def move_count(self) -> int:
         return len(self.moves) if self.moves is not None else 0
 
+    @property
+    def board_size(self) -> int:
+        if not self.raw_sgf:
+            return 19
+        import re
+        match = re.search(r"SZ\[(\d+)\]", self.raw_sgf, re.IGNORECASE)
+        if match:
+            try:
+                val = int(match.group(1))
+                if 2 <= val <= 25:
+                    return val
+            except ValueError:
+                pass
+        return 19
+
 
 
 class Move(Base):

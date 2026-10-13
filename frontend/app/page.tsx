@@ -16,7 +16,10 @@ import GoBoard from "./components/GoBoard";
 import MoveControls from "./components/MoveControls";
 import WinrateChart from "./components/WinrateChart";
 import { fetchGameAnalysis, fetchGames } from "./lib/api";
-import { precalculateAllBoardStates } from "./lib/go-engine";
+import {
+	extractBoardSizeFromSgf,
+	precalculateAllBoardStates,
+} from "./lib/go-engine";
 import type { GameAnalysis } from "./lib/types";
 
 export default function Home() {
@@ -67,13 +70,20 @@ export default function Home() {
 		return () => clearInterval(pollId);
 	}, [game?.id, game?.status]);
 
+	// Determine board size (from API board_size or parsed from raw SGF)
+	const boardSize = useMemo(() => {
+		if (!game) return 19;
+		if (game.board_size && game.board_size >= 2) return game.board_size;
+		return extractBoardSizeFromSgf(game.raw_sgf, 19);
+	}, [game]);
+
 	// Precompute board states for all moves in memory (instant 0ms scrubbing)
 	const boardStates = useMemo(() => {
 		if (!game || game.moves.length === 0) {
-			return precalculateAllBoardStates([]);
+			return precalculateAllBoardStates([], boardSize);
 		}
-		return precalculateAllBoardStates(game.moves);
-	}, [game?.moves]);
+		return precalculateAllBoardStates(game.moves, boardSize);
+	}, [game?.moves, boardSize]);
 
 	const currentBoardState = useMemo(() => {
 		const safeIdx = Math.max(
@@ -167,7 +177,7 @@ export default function Home() {
 			)}
 
 			{/* Main Workspace Layout */}
-			<main className="flex flex-1 flex-col p-4 md:p-6 lg:flex-row lg:gap-6">
+			<main className="flex w-full flex-1 flex-col p-4 md:p-6 lg:flex-row lg:gap-6">
 				{isLoadingInitial ? (
 					<div className="flex flex-1 items-center justify-center">
 						<div className="flex flex-col items-center gap-3 text-sm text-stone-400">
@@ -178,7 +188,7 @@ export default function Home() {
 				) : game ? (
 					<>
 						{/* Left Column: Board, Controls & Winrate Chart */}
-						<div className="flex flex-1 flex-col items-center gap-4 lg:max-w-[660px]">
+						<div className="flex w-full shrink-0 flex-col items-center gap-4 lg:w-[600px] xl:w-[660px] 2xl:w-[720px]">
 							{/* Game Matchup Metadata Card */}
 							<div className="flex w-full items-center justify-between rounded-xl border border-stone-800/90 bg-stone-900/80 px-4 py-2.5 text-xs">
 								<div className="flex items-center gap-2">
@@ -188,7 +198,10 @@ export default function Home() {
 									</strong>
 								</div>
 								<div className="font-mono text-[11px] text-stone-400">
-									Komi: {game.komi} • Rules: {game.rules}
+									<span className="rounded bg-stone-800 px-1.5 py-0.5 font-semibold text-amber-400">
+										{boardSize}x{boardSize}
+									</span>{" "}
+									• Komi: {game.komi} • Rules: {game.rules}
 									{game.result ? ` • Result: ${game.result}` : ""}
 								</div>
 								<div className="flex items-center gap-2">
@@ -202,12 +215,16 @@ export default function Home() {
 							{/* Go Board */}
 							<GoBoard
 								boardState={currentBoardState}
+								size={boardSize}
 								currentMoveNumber={currentMoveNumber}
 								lastMovePlayer={currentMove?.player ?? null}
 								lastMoveCoordinate={currentMove?.coordinate ?? null}
 								bestMoveCoordinate={currentMove?.analysis?.best_move ?? null}
 							/>
+						</div>
 
+						{/* Right Column: Move Controls, Winrate Chart & AI Coach Sidebar */}
+						<div className="mt-4 flex w-full min-w-0 flex-1 flex-col gap-4 lg:mt-0">
 							{/* Move Navigation Controls */}
 							<MoveControls
 								currentMoveNumber={currentMoveNumber}
@@ -221,14 +238,13 @@ export default function Home() {
 								currentMoveNumber={currentMoveNumber}
 								onSelectMove={setCurrentMoveNumber}
 							/>
-						</div>
 
-						{/* Right Column: AI Coach Sidebar */}
-						<div className="mt-4 flex flex-1 flex-col lg:mt-0 lg:max-w-md">
+							{/* AI Coach Sidebar */}
 							<CoachSidebar
 								currentMove={currentMove}
 								currentMoveNumber={currentMoveNumber}
 								totalMoves={game.moves.length}
+								boardSize={boardSize}
 								moves={game.moves}
 								onSelectMove={setCurrentMoveNumber}
 							/>

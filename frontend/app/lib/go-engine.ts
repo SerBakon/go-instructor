@@ -217,3 +217,21 @@ export function precalculateAllBoardStates(
 	}
 	return states;
 }
+
+/**
+ * Extracts board size from raw SGF text (looks for SZ[<num>]), defaulting to 19.
+ */
+export function extractBoardSizeFromSgf(
+	rawSgf?: string | null,
+	fallback = 19,
+): number {
+	if (!rawSgf) return fallback;
+	const match = rawSgf.match(/SZ\[(\d+)\]/i);
+	if (match) {
+		const parsed = Number.parseInt(match[1], 10);
+		if (!Number.isNaN(parsed) && parsed >= 2 && parsed <= 25) {
+			return parsed;
+		}
+	}
+	return fallback;
+}

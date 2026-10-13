@@ -32,6 +32,7 @@ export interface GameAnalysis {
 	rules: string;
 	result: string | null;
 	status: "pending" | "analyzing" | "completed" | "failed";
+	board_size?: number;
 	created_at: string | null;
 	updated_at: string | null;
 	move_count: number;
@@ -47,6 +48,7 @@ export interface GameSummary {
 	rules: string;
 	result: string | null;
 	status: "pending" | "analyzing" | "completed" | "failed";
+	board_size?: number;
 	move_count: number;
 	created_at: string | null;
 }

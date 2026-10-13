@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MoveWithAnalysis } from "../lib/types";
 
 interface WinrateChartProps {
@@ -14,10 +14,42 @@ export default function WinrateChart({
 	currentMoveNumber,
 	onSelectMove,
 }: WinrateChartProps) {
-	const chartWidth = 800;
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [containerWidth, setContainerWidth] = useState<number>(800);
+	const [hoveredMove, setHoveredMove] = useState<{
+		moveNum: number;
+		bWinrate: number;
+		x: number;
+		y: number;
+	} | null>(null);
+
+	// Dynamically measure container width for true 1:1 aspect ratio
+	useEffect(() => {
+		if (!containerRef.current) return;
+		const el = containerRef.current;
+		const updateWidth = () => {
+			if (el.clientWidth > 0) {
+				setContainerWidth(el.clientWidth);
+			}
+		};
+		updateWidth();
+
+		const ro = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				if (entry.contentRect.width > 0) {
+					setContainerWidth(Math.round(entry.contentRect.width));
+				}
+			}
+		});
+
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, []);
+
+	const chartWidth = Math.max(320, containerWidth);
 	const chartHeight = 140;
 	const padX = 24;
-	const padY = 16;
+	const padY = 18;
 	const plotWidth = chartWidth - padX * 2;
 	const plotHeight = chartHeight - padY * 2;
 
@@ -25,7 +57,6 @@ export default function WinrateChart({
 	const points = useMemo(() => {
 		if (moves.length === 0) return [];
 
-		// Move 0 (initial state): 50% winrate
 		const pts: {
 			moveNum: number;
 			bWinrate: number;
@@ -36,7 +67,7 @@ export default function WinrateChart({
 
 		const totalSteps = Math.max(1, moves.length);
 
-		// Add starting point
+		// Add starting point (Move 0 = 50% even)
 		pts.push({
 			moveNum: 0,
 			bWinrate: 50,
@@ -60,7 +91,6 @@ export default function WinrateChart({
 			}
 
 			const x = padX + ((i + 1) / totalSteps) * plotWidth;
-			// 100% winrate is at y = padY, 0% winrate is at y = padY + plotHeight
 			const y = padY + plotHeight * (1 - bWinrate / 100);
 
 			pts.push({
@@ -98,8 +128,24 @@ export default function WinrateChart({
 		return points.find((p) => p.moveNum === currentMoveNumber) ?? null;
 	}, [points, currentMoveNumber]);
 
+	const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+		const rect = e.currentTarget.getBoundingClientRect();
+		const clickX = e.clientX - rect.left;
+		const ratio = Math.max(0, Math.min(1, (clickX - padX) / plotWidth));
+		const moveIndex = Math.round(ratio * moves.length);
+		const pt = points.find((p) => p.moveNum === moveIndex);
+		if (pt) {
+			setHoveredMove(pt);
+		}
+	};
+
+	const handleMouseLeave = () => {
+		setHoveredMove(null);
+	};
+
 	return (
 		<div className="flex w-full flex-col rounded-xl border border-stone-800 bg-stone-900/90 p-4 shadow-xl backdrop-blur-sm">
+			{/* Header */}
 			<div className="mb-2 flex items-center justify-between text-xs">
 				<div className="flex items-center gap-2">
 					<span className="font-semibold text-stone-200">Winrate Timeline</span>
@@ -117,7 +163,9 @@ export default function WinrateChart({
 				</div>
 			</div>
 
+			{/* Interactive Timeline Container */}
 			<div
+				ref={containerRef}
 				className="relative w-full cursor-pointer select-none overflow-hidden rounded-lg bg-stone-950/80 p-1 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
 				onClick={(e) => {
 					const rect = e.currentTarget.getBoundingClientRect();
@@ -126,6 +174,8 @@ export default function WinrateChart({
 					const targetMove = Math.round(ratio * moves.length);
 					onSelectMove(targetMove);
 				}}
+				onMouseMove={handleMouseMove}
+				onMouseLeave={handleMouseLeave}
 				onKeyDown={(e) => {
 					if (e.key === "ArrowLeft") {
 						onSelectMove(Math.max(0, currentMoveNumber - 1));
@@ -142,14 +192,13 @@ export default function WinrateChart({
 			>
 				<svg
 					viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-					className="h-28 w-full"
-					preserveAspectRatio="none"
+					className="h-[140px] w-full"
 					aria-hidden="true"
 				>
 					<title>Winrate chart</title>
 					<defs>
 						<linearGradient id="winrateGradient" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0%" stopColor="#38bdf8" stopOpacity="0.4" />
+							<stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
 							<stop offset="50%" stopColor="#38bdf8" stopOpacity="0.05" />
 							<stop offset="100%" stopColor="#f43f5e" stopOpacity="0.3" />
 						</linearGradient>
@@ -168,9 +217,9 @@ export default function WinrateChart({
 
 					{/* 50% Text Label */}
 					<text
-						x={padX + 2}
-						y={padY + plotHeight * 0.5 - 4}
-						className="fill-stone-500 text-[10px]"
+						x={padX + 4}
+						y={padY + plotHeight * 0.5 - 5}
+						className="fill-stone-500 font-mono text-[10px]"
 					>
 						50% Even
 					</text>
@@ -190,7 +239,7 @@ export default function WinrateChart({
 						/>
 					)}
 
-					{/* Mistake & Blunder Marker Points */}
+					{/* Mistake & Blunder Marker Points (true 1:1 circles) */}
 					{points.map((pt) => {
 						if (pt.verdict === "blunder") {
 							return (
@@ -221,7 +270,29 @@ export default function WinrateChart({
 						return null;
 					})}
 
-					{/* Current move vertical scrubber indicator */}
+					{/* Hover guide indicator */}
+					{hoveredMove && hoveredMove.moveNum !== currentMoveNumber && (
+						<g>
+							<line
+								x1={hoveredMove.x}
+								y1={padY}
+								x2={hoveredMove.x}
+								y2={chartHeight - padY}
+								stroke="#78716c"
+								strokeWidth="1"
+								strokeDasharray="2 2"
+							/>
+							<circle
+								cx={hoveredMove.x}
+								cy={hoveredMove.y}
+								r="3.5"
+								fill="#a8a29e"
+								opacity="0.8"
+							/>
+						</g>
+					)}
+
+					{/* Current move vertical scrubber indicator (true 1:1 circle) */}
 					{currentPoint && (
 						<g>
 							<line
@@ -235,7 +306,7 @@ export default function WinrateChart({
 							<circle
 								cx={currentPoint.x}
 								cy={currentPoint.y}
-								r="5"
+								r="5.5"
 								fill="#fbbf24"
 								stroke="#451a03"
 								strokeWidth="2"
@@ -255,7 +326,7 @@ export default function WinrateChart({
 						</strong>{" "}
 						/ {100 - currentPoint.bWinrate}% White
 					</span>
-					<span>Click anywhere on chart to jump to move</span>
+					<span>Click or scrub to jump to any move</span>
 				</div>
 			)}
 		</div>

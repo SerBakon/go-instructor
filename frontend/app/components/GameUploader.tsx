@@ -260,6 +260,12 @@ export default function GameUploader({
 										{sample.blackPlayer} vs {sample.whitePlayer}
 									</span>
 									<span>•</span>
+									<span className="font-semibold text-amber-400">
+										{sample.boardSize
+											? `${sample.boardSize}x${sample.boardSize}`
+											: "19x19"}
+									</span>
+									<span>•</span>
 									<span>{sample.moveCount} moves</span>
 								</div>
 							</div>

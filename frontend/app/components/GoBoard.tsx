@@ -49,17 +49,41 @@ export default function GoBoard({
 	const cellSize = gridSpan / (size - 1);
 	const stoneRadius = cellSize * 0.47;
 
-	// Star points (hoshi) for 19x19 board
+	// Star points (hoshi) for 19x19, 13x13, 9x9 boards
 	const starPoints = useMemo(() => {
-		if (size !== 19) return [];
-		const points = [3, 9, 15];
-		const result: [number, number][] = [];
-		for (const x of points) {
-			for (const y of points) {
-				result.push([x, y]);
+		if (size === 19) {
+			const points = [3, 9, 15];
+			const result: [number, number][] = [];
+			for (const x of points) {
+				for (const y of points) {
+					result.push([x, y]);
+				}
 			}
+			return result;
 		}
-		return result;
+		if (size === 13) {
+			return [
+				[3, 3],
+				[9, 3],
+				[6, 6],
+				[3, 9],
+				[9, 9],
+			] as [number, number][];
+		}
+		if (size === 9) {
+			return [
+				[2, 2],
+				[6, 2],
+				[4, 4],
+				[2, 6],
+				[6, 6],
+			] as [number, number][];
+		}
+		if (size % 2 === 1 && size >= 5) {
+			const mid = Math.floor(size / 2);
+			return [[mid, mid]] as [number, number][];
+		}
+		return [];
 	}, [size]);
 
 	// Best move coordinates
@@ -74,7 +98,7 @@ export default function GoBoard({
 			lastMoveCoordinate.toUpperCase() === "");
 
 	return (
-		<div className="relative flex w-full max-w-[620px] select-none flex-col items-center">
+		<div className="relative flex w-full select-none flex-col items-center">
 			<div className="relative aspect-square w-full rounded-2xl bg-gradient-to-br from-[#dfb15b] via-[#d5a44a] to-[#c59339] p-2 shadow-2xl ring-1 ring-amber-900/30">
 				<svg
 					viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
@@ -242,7 +266,7 @@ export default function GoBoard({
 								key={`star-${sx}-${sy}`}
 								cx={cx}
 								cy={cy}
-								r="3.5"
+								r={Math.max(3, cellSize * 0.085)}
 								fill="#4a3014"
 							/>
 						);

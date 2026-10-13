@@ -18,6 +18,7 @@ interface CoachSidebarProps {
 	currentMove: MoveWithAnalysis | null;
 	currentMoveNumber: number;
 	totalMoves: number;
+	boardSize?: number;
 	moves: MoveWithAnalysis[];
 	onSelectMove: (moveNumber: number) => void;
 }
@@ -26,6 +27,7 @@ export default function CoachSidebar({
 	currentMove,
 	currentMoveNumber,
 	totalMoves,
+	boardSize = 19,
 	moves,
 	onSelectMove,
 }: CoachSidebarProps) {
@@ -109,7 +111,7 @@ export default function CoachSidebar({
 						</h2>
 						<p className="text-stone-400 text-xs">
 							{currentMoveNumber === 0
-								? "Empty 19x19 board"
+								? `Empty ${boardSize}x${boardSize} board`
 								: `${currentMove?.player === "B" ? "Black" : "White"} • Move ${currentMoveNumber} of ${totalMoves}`}
 						</p>
 					</div>

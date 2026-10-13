@@ -133,6 +133,12 @@ export default function GameListDrawer({
 										{g.black_player || "Black"} vs {g.white_player || "White"}
 									</p>
 									<div className="mt-1 flex items-center gap-2 font-mono text-[10px] text-stone-500">
+										<span>
+											{g.board_size
+												? `${g.board_size}x${g.board_size}`
+												: "19x19"}
+										</span>
+										<span>•</span>
 										<span>{g.move_count} moves</span>
 										<span>•</span>
 										<span

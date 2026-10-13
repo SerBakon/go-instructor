@@ -31,6 +31,7 @@ class GameSummaryResponse(BaseModel):
     rules: str
     result: Optional[str] = None
     status: str
+    board_size: int = 19
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     move_count: int
@@ -49,6 +50,7 @@ class GameResponse(BaseModel):
     rules: str
     result: Optional[str] = None
     status: str
+    board_size: int = 19
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     move_count: int
